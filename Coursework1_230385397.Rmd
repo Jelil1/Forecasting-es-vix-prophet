@@ -1,0 +1,184 @@
+---
+title: "Forecasting Equity Market Trends and Volatility using Meta's Prophet Model" 
+subtitle: "A Case Study of ES Futures and the VIX Index" 
+author: "Abduljelil Abdulalim" 
+date: "13/03/26" 
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab 
+    highlight: tango
+---
+ 
+```{r, echo=FALSE}
+# This code will display the QMUL logo at the top right of the page
+# Do not change this code
+htmltools::img(src = knitr::image_uri("images/QMlogo.png"),
+               alt = 'logo',
+               style = 'position:absolute; top:0; right:0; padding:10px; width:20%;')
+```
+
+
+# Introduction 
+
+Financial markets generate large amounts of time-series data that analysts use to study trends, risk, and market behaviour. In this project I look to analyse two widely followed financial indicators: the E-mini S&P 500 Futures (ES) and the CBOE Volatility Index (VIX). ES futures are commonly used as a proxy for the overall U.S. equity market, while the VIX measures the market’s expectation of future volatility. These two series are often analysed together because equity prices and market volatility are closely related.
+
+## Background on Financial Markets
+
+Equity markets are influenced by a combination of economic conditions, investor sentiment, and global events. As a result, financial time series often display trends, periods of volatility, and sudden market shocks. The E-mini S&P 500 Futures contract is widely used by traders and institutions to gain exposure to the U.S. stock market, as it closely tracks the performance of the S&P 500 Index. Due to its high liquidity and continuous trading, ES futures are commonly analysed when studying market behaviour.
+
+## Market Volatility
+
+Alongside price movements, volatility is an important aspect of financial markets. The CBOE Volatility Index (VIX) represents the market’s expectation of volatility over the next 30 days based on options prices. The VIX tends to increase during periods of market uncertainty or financial stress, when investors are generally expecting larger price movements. For example, volatility increased sharply during events such as the COVID-19 Market Crash and the 2008 Financial Crisis. Because of this behaviour, the VIX is often used as a measure of market risk.As a result of this its also picked up the nickname or refered to as the 'fear index'.
+
+## Project Objective
+
+Studying equity markets alongside volatility can reveal important insights into market behaviour. Falling equity prices are often accompanied by rising volatility, while stable markets tend to coincide with lower volatility. A clear example occurred during the COVID-19 Market Crash in 2020, when the CBOE Volatility Index surged to around 82 while the S&P 500 Index fell by roughly 34%. This event highlights the strong link between market prices and expected volatility, which is why both indicators are closely monitored by traders and risk managers. In this project, historical data from E-mini S&P 500 Futures and the VIX are analysed using the forecasting framework developed by Meta called Prophet to examine whether these patterns can help produce short-term forecasts of both market prices and volatility.
+
+## Data Collection and Cleaning
+
+Historical daily data for the E-mini S&P 500 futures (ES) and the CBOE Volatility Index (VIX) were obtained from Yahoo Finance using the `quantmod` package in R. These datasets are provided in xts format, which is well suited for time-series analysis.
+
+Before modelling, the data was cleaned to ensure reliability and consistency. Any missing observations were removed using the `na.omit()` function. This step is important as missing values can distort model estimation and lead to inaccurate forecasts.
+
+The cleaned time series were then transformed into data frames compatible with the Prophet model. Specifically, each dataset was reformatted into two columns: `ds`, representing the date index, and `y`, representing the observed value (closing price). This structure is required by the Prophet framework for time-series forecasting.
+
+```{r echo=FALSE}
+```
+
+```{r setup2, message=FALSE, warning=FALSE}
+library(quantmod)
+library(prophet)
+
+getSymbols("ES=F", src = "yahoo")
+getSymbols("^VIX", src = "yahoo")
+```
+```{r clean}
+es_clean <- na.omit(`ES=F`)
+vix_clean <- na.omit(VIX)
+```
+```{r format}
+es_data <- data.frame(
+  ds = index(es_clean),
+  y  = as.numeric(Cl(es_clean))
+)
+
+vix_data <- data.frame(
+  ds = index(vix_clean),
+  y  = as.numeric(Cl(vix_clean))
+)
+```
+
+## Exploratory Data Analysis
+
+To understand the behaviour of the datasets, the historical time series for both ES futures and the VIX were visualised.
+
+The ES series shows a clear long-term upward trend, reflecting overall growth in the equity market. However, there are noticeable declines during periods of financial stress, such as the 2020 COVID-19 crash.
+
+In contrast, the VIX exhibits a very different pattern. Rather than following a smooth trend, it remains relatively low during stable periods but spikes sharply during times of uncertainty.
+
+This inverse relationship is important: when ES prices fall, the VIX tends to rise. This suggests that volatility increases when markets become unstable.
+
+
+```{r eda_plots}
+plot(index(es_clean), Cl(es_clean),
+     type = "l", col = "blue",
+     main = "ES Futures Price",
+     xlab = "Date", ylab = "Price")
+
+plot(index(vix_clean), Cl(vix_clean),
+     type = "l", col = "red",
+     main = "VIX Index",
+     xlab = "Date", ylab = "Volatility")
+
+## Prophet Model - ES Forecast
+```{r setup, message=FALSE, warning=FALSE}
+library(prophet)
+
+es_model <- prophet(es_data)
+```
+```{r es_future}
+es_future <- make_future_dataframe(es_model, periods = 30)
+```
+```{r es_predict}
+es_forecast <- predict(es_model, es_future)
+```
+```{r es_plot_forecast}
+plot(es_model, es_forecast)
+```
+
+## Prophet Model – VIX Forecast
+
+```{r vix_model}
+vix_model <- prophet(vix_data)
+vix_future <- make_future_dataframe(vix_model, periods = 30)
+vix_forecast <- predict(vix_model, vix_future)
+plot(vix_model, vix_forecast)
+```
+
+---
+## Explanation
+
+In this project, I apply the Prophet model to the E-mini S&P 500 futures time series to generate short-term forecasts. Similar to the ES model, Prophet decomposes the data into trend and other components, allowing it to capture the dynamic behaviour of volatility over time.
+
+A future dataframe extending 30 days ahead was created, and forecasts were generated based on the historical VIX data. Unlike ES prices, the VIX does not follow a smooth long-term trend but instead exhibits sudden spikes during periods of market stress.
+
+The forecast reflects this behaviour, showing relatively stable periods with the potential for sharp increases in volatility. This highlights the reactive nature of the VIX as a measure of market uncertainty.
+
+One limitation I noticed while working with this data is that the VIX can spike very suddenly, which makes it difficult for models like Prophet to capture extreme market events accurately.
+
+Nonetheless, the Prophet model provides a useful framework for modelling volatility, although sudden market shocks remain difficult to predict accurately.
+
+## Comparison of ES and VIX
+
+The comparison between ES futures and the VIX highlights a clear inverse relationship between equity market performance and volatility. While the ES series generally follows a long-term upward trend, the VIX tends to remain low during stable periods and spike sharply during market downturns.
+
+This relationship is particularly evident during periods of financial stress. For example, during the 2020 COVID-19 market crash, ES prices declined significantly while the VIX surged to extreme levels. This clearly shows that when equity prices fall, volatility tends to rise, reflecting increased uncertainty and risk in the market.
+
+From the forecasting results, the ES model captures gradual trends in market prices, whereas the VIX model reflects the irregular and reactive nature of volatility. Together, these models provide complementary insights: ES indicates market direction, while the VIX reflects the level of risk and uncertainty.And from a trading perspective, this relationship is particularly useful, as rising volatility often signals increased uncertainty and potential risk in the market.
+Understanding this relationship is valuable for traders and analysts, as combining both indicators can improve decision-making and provide a more complete view of market conditions.
+Suggesting that incorporating volatility measures such as the VIX into price forecasting models may improve predictive performance.
+
+## Combined Analysis of ES and VIX
+
+```{r combined_plot}
+plot(index(es_clean), Cl(es_clean), type = "l",
+     col = "blue", xlab = "Date", ylab = "ES Price",
+     main = "ES vs VIX (Scaled)")
+
+lines(index(vix_clean), Cl(vix_clean) * 50, col = "red")
+
+legend("topleft",
+       legend = c("ES", "VIX (scaled)"),
+       col = c("blue", "red"),
+       lty = 1)
+```
+
+To further examine the relationship between equity prices and market volatility, the ES and VIX series were plotted together on the same chart. As the VIX operates on a much smaller scale than ES prices, it was rescaled to allow for meaningful visual comparison.
+
+The combined plot highlights the inverse relationship between the two variables. Periods where ES prices decline are often accompanied by noticeable increases in the VIX. This is particularly evident during major market events, where volatility spikes as equity markets fall.
+
+This visualisation reinforces the idea that ES and VIX provide complementary information. While ES reflects overall market direction, the VIX captures investor sentiment and perceived risk, making both essential for understanding market dynamics.
+
+## Conclusion
+
+This project analysed the relationship between equity market performance and volatility using ES futures and the VIX index. The results confirm a strong inverse relationship, where declines in market prices are typically associated with increases in volatility.
+
+The Prophet model was effective in capturing underlying trends in both series, although its ability to predict sudden market shocks is limited. Combining ES and VIX provides a more comprehensive understanding of market conditions, as they reflect both price direction and risk.
+
+Overall, this analysis demonstrates that time-series models such as Prophet can be valuable tools for financial forecasting, particularly when used alongside complementary indicators.
+
+# References
+
+- Taylor, S.J. and Letham, B. (2018). *Forecasting at Scale*. The American Statistician. (Prophet model)
+
+- Yahoo Finance. Available at: https://finance.yahoo.com/  
+(Data source for ES futures and VIX)
+
+- Quantmod Package Documentation. Available at: https://cran.r-project.org/package=quantmod  
+
+- Prophet Package Documentation. Available at: https://facebook.github.io/prophet/  
+
+- Chicago Board Options Exchange (CBOE). Available at: https://www.cboe.com/  
+(Information on the VIX Index)
